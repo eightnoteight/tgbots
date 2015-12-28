@@ -1,6 +1,12 @@
-Flask
-psycopg2
-requests
-SQLAlchemy
-SQLAlchemy-Utils
-telepot
+--index-url https://pypi.python.org/simple/
+Flask==0.10.1
+itsdangerous==0.24
+Jinja2==2.8
+MarkupSafe==0.23
+psycopg2==2.6.1
+requests==2.9.1
+six==1.10.0
+SQLAlchemy==1.0.11
+SQLAlchemy-Utils==0.31.4
+telepot==4.1
+Werkzeug==0.11.3
