@@ -87,7 +87,7 @@ class Conversation(telepot.helper.ChatHandler):
                 {wp_oauth_link}
         """
         return self.sender.sendMessage(
-            textwrap.dedent(helpmsg).format(wp_oauth_link=self.getOauth(self.msg[u'from'][u'username'])))
+            textwrap.dedent(helpmsg).format(wp_oauth_link=self.getOauth(msg[u'from'][u'username'])))
 
     def cancel(self, msg, text):
         if self.idle:
@@ -141,7 +141,7 @@ class Conversation(telepot.helper.ChatHandler):
         code = msg.partition(u'\n')[0].partition(u' ')[2]
         if not code:
             return self.sender.sendMessage(
-                textwrap.dedent(helpmsg).format(wp_oauth_link=self.getOauth(self.msg[u'from'][u'username'])))
+                textwrap.dedent(helpmsg).format(wp_oauth_link=self.getOauth(msg[u'from'][u'username'])))
         resp = requests.post(
             u'https://public-api.wordpress.com/oauth2/token',
             data={
@@ -156,7 +156,7 @@ class Conversation(telepot.helper.ChatHandler):
         authinfo = resp.json()
         session.add(
             User(
-                self.msg[u'from'][u'username'],
+                msg[u'from'][u'username'],
                 authinfo[u'access_token'],
                 authinfo[u'blog_url'],
                 authinfo[u'token_type']))
@@ -186,7 +186,7 @@ class Conversation(telepot.helper.ChatHandler):
     def post(self, msg, text):
         return self.sender.sendMessage('Not Implemented!')
         # post_uri = u'https://public-api.wordpress.com/rest/v1.1/sites/{site}/posts/new'
-        # site = db.getblog(self.msg[u'from'][u'username'])
+        # site = db.getblog(msg[u'from'][u'username'])
         # requests.post(post_uri.format(site=site, data={
 
         #     }))
