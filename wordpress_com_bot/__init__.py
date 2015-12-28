@@ -1,5 +1,5 @@
 import os
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, current_app
 from functools import wraps
 from collections import defaultdict
 import telepot
@@ -195,7 +195,8 @@ class Conversation(telepot.helper.ChatHandler):
             if cmd not in self.callback:
                 return self.sender.sendMessage(u'unrecognized command!')
             return self.callback[cmd](msg, text)
-        except:
+        except Exception, e:
+            current_app.error(str(e))
             return self.sender.sendMessage(u'500: server error!')
 
 wpbot = telepot.DelegatorBot(
