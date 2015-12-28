@@ -47,14 +47,10 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     username = Column(String(63), nullable=False, unique=True)
     access_token = Column(String(127), nullable=False)
-    blog_url = Column(String(127), nullable=False)
-    token_type = Column(String(31), nullable=False)
 
-    def __init__(self, username, access_token, blog_url, token_type):
+    def __init__(self, username, access_token):
         self.username = username
         self.access_token = access_token
-        self.blog_url = blog_url
-        self.token_type = token_type
 
 Base.metadata.create_all(engine)
 
@@ -157,11 +153,9 @@ class Conversation(telepot.helper.ChatHandler):
         session.add(
             User(
                 msg[u'from'][u'username'],
-                authinfo[u'access_token'],
-                authinfo[u'blog_url'],
-                authinfo[u'token_type']))
+                authinfo[u'access_token']))
         session.commit()
-        return self.sender.sendMessage('authorization successfull!\nblog_url:%s' % authinfo[u'blog_url'])
+        return self.sender.sendMessage('authorization successfull!')
 
     def set_default_site(self, msg, text):
         u"""
