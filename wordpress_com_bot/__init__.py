@@ -29,11 +29,12 @@ configparser.read(
 config = dict(configparser.items('default'))
 
 engine = create_engine(
-    'postgresql://{username}:{password}@{postgresql_host}:{postgresql_port}/testdb'.format(
+    'postgresql://{username}:{password}@{postgresql_host}:{postgresql_port}/{dbname}'.format(
         username=config[u'psqldb_username'],
         password=config[u'psqldb_password'],
         postgresql_host=config[u'psqldb_host'],
-        postgresql_port=config[u'psqldb_port']
+        postgresql_port=config[u'psqldb_port'],
+        dbname=config[u'psqldb_dbname']
     ), echo=True)
 if not database_exists(engine.url):
     create_database(engine.url)
