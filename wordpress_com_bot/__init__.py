@@ -126,12 +126,13 @@ class Conversation(telepot.helper.ChatHandler):
         msg = seed_tuple[1]
         self.username = msg[u'from'][u'username']
         self.user_dbref = session.query(User).filter(User.username == self.username).one_or_none()
-        if not self.user_dbref:
+        if self.user_dbref is None:
             session.add(
                 User(
                     username=self.username,
                     access_token='dummyToken',
                     data={}))
+            session.commit()
             self.user_dbref = session.query(User).filter(User.username == self.username).one_or_none()
 
     def start(self, msg, text):
