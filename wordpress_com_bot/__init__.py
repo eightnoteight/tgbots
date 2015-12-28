@@ -138,7 +138,7 @@ class Conversation(telepot.helper.ChatHandler):
                 to authorize this app follow the below link
                 {wp_oauth_link}
         """
-        code = msg.partition(u'\n')[0].partition(u' ')[2]
+        code = msg[u'text'].partition(u'\n')[0].partition(u' ')[2]
         if not code:
             return self.sender.sendMessage(
                 textwrap.dedent(helpmsg).format(wp_oauth_link=self.getOauth(msg[u'from'][u'username'])))
