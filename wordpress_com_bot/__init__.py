@@ -125,15 +125,14 @@ class Conversation(telepot.helper.ChatHandler):
         }
         msg = seed_tuple[1]
         self.username = msg[u'from'][u'username']
-        self.user_dbref = session.query(User).filter(User.username == self.username).one_or_none()
-        if self.user_dbref is None:
+        user_dbref = session.query(User).filter(User.username == self.username).one_or_none()
+        if user_dbref is None:
             session.add(
                 User(
                     username=self.username,
                     access_token='dummyToken',
                     data={}))
             session.commit()
-            self.user_dbref = session.query(User).filter(User.username == self.username).one_or_none()
 
     def start(self, msg, text):
         helpmsg = u"""
@@ -145,9 +144,11 @@ class Conversation(telepot.helper.ChatHandler):
             textwrap.dedent(helpmsg).format(wp_oauth_link=self.getOauth(self.username)))
 
     def cancel(self, msg, text):
-        if len(self.user_dbref.data) == 0:
+        user_dbref = session.query(User).filter(User.username == self.username).one_or_none()
+        assert user_dbref is not None
+        if len(user_dbref.data) == 0:
             return self.sender.sendMessage(u'no operation to cancel.')
-        self.user_dbref.data.clear()
+        user_dbref.data.clear()
         session.commit()
         return self.sender.sendMessage(u'current operation cancelled')
 
@@ -165,10 +166,11 @@ class Conversation(telepot.helper.ChatHandler):
         ref:
             for complete documentation send /help
         """
-        if len(self.user_dbref.data):
+        user_dbref = session.query(User).filter(User.username == self.username).one_or_none()
+        if len(user_dbref.data) != 0:
             return self.sender.sendMessage(
                 u'you are in the middle of an operation! please cancel that first with /cancel')
-        self.user_dbref.data[u'operation'] = u'createpost'
+        user_dbref.data[u'operation'] = u'createpost'
         session.commit()
 
     def getOauth(self, username):
@@ -209,7 +211,8 @@ class Conversation(telepot.helper.ChatHandler):
         if resp.status_code != 200:
             return self.sender.sendMessage('authorization failed! please enter the correct code')
         authinfo = resp.json()
-        self.user_dbref.access_token = authinfo[u'access_token']
+        user_dbref = session.query(User).filter(User.username == self.username).one_or_none()
+        user_dbref.access_token = authinfo[u'access_token']
         session.commit()
         return self.sender.sendMessage('authorization successfull!')
 
@@ -222,18 +225,21 @@ class Conversation(telepot.helper.ChatHandler):
         return
 
     def set_title(self, msg, text):
-        self.user_dbref.data[u'title'] = text
+        user_dbref = session.query(User).filter(User.username == self.username).one_or_none()
+        user_dbref.data[u'title'] = text
         session.commit()
 
     def set_content(self, msg, text):
-        self.user_dbref.data[u'content'] = text
+        user_dbref = session.query(User).filter(User.username == self.username).one_or_none()
+        user_dbref.data[u'content'] = text
         session.commit()
 
     def review(self, msg, text):
-        if not len(self.user_dbref.data):
+        user_dbref = session.query(User).filter(User.username == self.username).one_or_none()
+        if not len(user_dbref.data):
             return self.sender.sendMessage(u'status: idle')
         return self.sender.sendMessage(
-            json.dumps(dict(self.user_dbref.data)))
+            json.dumps(dict(user_dbref.data)))
 
     def post(self, msg, text):
         return self.sender.sendMessage('Not Implemented!')
