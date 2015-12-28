@@ -229,7 +229,7 @@ class Conversation(telepot.helper.ChatHandler):
         session.commit()
 
     def review(self, msg, text):
-        if len(self.user_dbref.data):
+        if not len(self.user_dbref.data):
             return self.sender.sendMessage(u'status: idle')
         return self.sender.sendMessage(
             json.dumps(dict(self.user_dbref.data)))
