@@ -164,7 +164,7 @@ class Conversation(telepot.helper.ChatHandler):
         ref:
             for complete documentation send /help
         """
-        if not len(self.user_dbref.data):
+        if len(self.user_dbref.data):
             return self.sender.sendMessage(
                 u'you are in the middle of an operation! please cancel that first with /cancel')
         self.user_dbref.data[u'operation'] = u'createpost'
