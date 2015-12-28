@@ -46,7 +46,7 @@ class User(Base):
     __tablename__ = 'users'
     id = Column(Integer, primary_key=True)
     username = Column(String(63), nullable=False, unique=True)
-    access_token = Column(String(63), nullable=False)
+    access_token = Column(String(127), nullable=False)
     blog_url = Column(String(127), nullable=False)
     token_type = Column(String(31), nullable=False)
 
