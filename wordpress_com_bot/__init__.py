@@ -196,7 +196,7 @@ class Conversation(telepot.helper.ChatHandler):
                 return self.sender.sendMessage(u'unrecognized command!')
             return self.callback[cmd](msg, text)
         except Exception, e:
-            current_app.error(str(e))
+            current_app.logger.error(str(e))
             return self.sender.sendMessage(u'500: server error!')
 
 wpbot = telepot.DelegatorBot(
