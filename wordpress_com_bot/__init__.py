@@ -29,7 +29,7 @@ configparser.read(
 config = dict(configparser.items('default'))
 
 engine = create_engine(
-    'postgresql://{username}:{password}@{postgresql_host}:{postgresql_port}/{dbname}'.format(
+    u'postgresql://{username}:{password}@{postgresql_host}:{postgresql_port}/{dbname}'.format(
         username=config[u'psqldb_username'],
         password=config[u'psqldb_password'],
         postgresql_host=config[u'psqldb_host'],
@@ -151,10 +151,14 @@ class Conversation(telepot.helper.ChatHandler):
         if resp.status_code != 200:
             return self.sender.sendMessage('authorization failed! please enter the correct code')
         authinfo = resp.json()
-        session.add(
-            User(
-                msg[u'from'][u'username'],
-                authinfo[u'access_token']))
+        user_dbref = session.query(User).filter(User.name == msg[u'from'][u'username']).one_or_none()
+        if not user_dbref:
+            session.add(
+                User(
+                    msg[u'from'][u'username'],
+                    authinfo[u'access_token']))
+        else:
+            user_dbref.access_token = authinfo[u'access_token']
         session.commit()
         return self.sender.sendMessage('authorization successfull!')
 
