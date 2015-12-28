@@ -232,7 +232,7 @@ class Conversation(telepot.helper.ChatHandler):
         if len(self.user_dbref.data):
             return self.sender.sendMessage(u'status: idle')
         return self.sender.sendMessage(
-            json.dumps(dict(self.user_dbref.data))
+            json.dumps(dict(self.user_dbref.data)))
 
     def post(self, msg, text):
         return self.sender.sendMessage('Not Implemented!')
