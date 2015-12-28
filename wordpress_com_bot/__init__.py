@@ -15,7 +15,10 @@ from ConfigParser import SafeConfigParser
 from threading import Thread
 from heapq import heappush, heappop
 from logging import getLogger
-logger = getLogger(__name__)
+import logging
+import sys
+logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+logger = getLogger('tgbots.wordpress_com_bot')
 
 configparser = SafeConfigParser(os.environ)
 configparser.read(
