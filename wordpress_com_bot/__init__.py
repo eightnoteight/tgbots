@@ -17,6 +17,7 @@ from heapq import heappush, heappop
 from logging import getLogger
 import logging
 import sys
+import traceback
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = getLogger('tgbots.wordpress_com_bot')
 
@@ -202,6 +203,8 @@ class Conversation(telepot.helper.ChatHandler):
             return self.callback[cmd](msg, text)
         except Exception, e:
             logger.error(str(e))
+            ex_type, ex, tb = sys.exc_info()
+            traceback.print_tb(tb)
             return self.sender.sendMessage(u'500: server error!')
 
 wpbot = telepot.DelegatorBot(
