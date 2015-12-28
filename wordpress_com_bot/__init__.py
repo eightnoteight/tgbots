@@ -14,6 +14,8 @@ from sqlalchemy_utils import database_exists, create_database
 from ConfigParser import SafeConfigParser
 from threading import Thread
 from heapq import heappush, heappop
+from logging import getLogger
+logger = getLogger(__name__)
 
 configparser = SafeConfigParser(os.environ)
 configparser.read(
@@ -196,7 +198,7 @@ class Conversation(telepot.helper.ChatHandler):
                 return self.sender.sendMessage(u'unrecognized command!')
             return self.callback[cmd](msg, text)
         except Exception, e:
-            current_app.logger.error(str(e))
+            logger.error(str(e))
             return self.sender.sendMessage(u'500: server error!')
 
 wpbot = telepot.DelegatorBot(
