@@ -151,7 +151,7 @@ class Conversation(telepot.helper.ChatHandler):
         if resp.status_code != 200:
             return self.sender.sendMessage('authorization failed! please enter the correct code')
         authinfo = resp.json()
-        user_dbref = session.query(User).filter(User.name == msg[u'from'][u'username']).one_or_none()
+        user_dbref = session.query(User).filter(User.username == msg[u'from'][u'username']).one_or_none()
         if not user_dbref:
             session.add(
                 User(
