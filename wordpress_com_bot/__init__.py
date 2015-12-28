@@ -144,7 +144,7 @@ class Conversation(telepot.helper.ChatHandler):
             textwrap.dedent(helpmsg).format(wp_oauth_link=self.getOauth(self.username)))
 
     def cancel(self, msg, text):
-        if self.idle:
+        if len(self.user_dbref.data):
             return self.sender.sendMessage(u'no operation to cancel.')
         self.user_dbref.data.clear()
         session.commit()
@@ -164,7 +164,7 @@ class Conversation(telepot.helper.ChatHandler):
         ref:
             for complete documentation send /help
         """
-        if not self.idle:
+        if not len(self.user_dbref.data):
             return self.sender.sendMessage(
                 u'you are in the middle of an operation! please cancel that first with /cancel')
         self.user_dbref.data[u'operation'] = u'createpost'
@@ -229,7 +229,7 @@ class Conversation(telepot.helper.ChatHandler):
         session.commit()
 
     def review(self, msg, text):
-        if self.idle:
+        if len(self.user_dbref.data):
             return self.sender.sendMessage(u'status: idle')
         return self.sender.sendMessage(
             json.dumps(dict(self.user_dbref.data), sort_keys=True, indent=4, separators=(u',', u': ')))
