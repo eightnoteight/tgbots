@@ -242,12 +242,22 @@ class Conversation(telepot.helper.ChatHandler):
             json.dumps(dict(user_dbref.data)))
 
     def post(self, msg, text):
-        return self.sender.sendMessage('Not Implemented!')
-        # post_uri = u'https://public-api.wordpress.com/rest/v1.1/sites/{site}/posts/new'
-        # site = db.getblog(self.username)
-        # requests.post(post_uri.format(site=site, data={
-
-        #     }))
+        user_dbref = session.query(User).filter(User.username == self.username).one_or_none()
+        resp = requests.post(
+            'https://public-api.wordpress.com/rest/v1.1/sites/eightnoteight.wordpress.com/posts/new/',
+            data={
+                'title': user_dbref.data.get('title', ''),
+                'content': user_dbref.data.get('content', ''),
+            },
+            headers={
+                'authorization': 'Bearer %s' % user_dbref.access_token
+            }
+        )
+        if resp.status_code == 400:
+            return self.sender.sendMessage('invalid token. try authorizing the app again.')
+        if resp.status_code != 200:
+            return self.sender.sendMessage('unknown error. error code received is %s' % resp.status_code)
+        return self.sender.sendMessage(resp.json()[u'URL'])
 
     def on_message(self, msg):
         try:
