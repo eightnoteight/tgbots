@@ -3,7 +3,7 @@ from flask import Blueprint, jsonify, request, current_app
 from functools import wraps
 from collections import defaultdict
 import telepot
-import json
+import ujson as json
 import requests
 import textwrap
 from telepot.delegate import per_chat_id, create_open
@@ -11,6 +11,8 @@ from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy_utils import database_exists, create_database
+from sqlalchemy.types import TypeDecorator, VARCHAR
+from sqlalchemy.ext.mutable import Mutable
 from ConfigParser import SafeConfigParser
 from threading import Thread
 from heapq import heappush, heappop
@@ -18,6 +20,56 @@ from logging import getLogger
 import logging
 import sys
 import traceback
+
+
+class JSONEncodedDict(TypeDecorator):
+    "Represents an immutable structure as a json-encoded string."
+
+    impl = VARCHAR
+
+    def process_bind_param(self, value, dialect):
+        if value is not None:
+            value = json.dumps(value)
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is not None:
+            value = json.loads(value)
+        return value
+
+class MutableDict(Mutable, dict):
+    @classmethod
+    def coerce(cls, key, value):
+        "Convert plain dictionaries to MutableDict."
+
+        if not isinstance(value, MutableDict):
+            if isinstance(value, dict):
+                return MutableDict(value)
+
+            # this call will raise ValueError
+            return Mutable.coerce(key, value)
+        else:
+            return value
+
+    def __setitem__(self, key, value):
+        "Detect dictionary set events and emit change events."
+
+        dict.__setitem__(self, key, value)
+        self.changed()
+
+    def clear(self):
+        for key in self.keys():
+            del self[key]
+
+    def __delitem__(self, key):
+        "Detect dictionary del events and emit change events."
+
+        dict.__delitem__(self, key)
+        self.changed()
+
+MutableDict.associate_with(JSONEncodedDict)
+
+
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logger = getLogger('tgbots.wordpress_com_bot')
 
@@ -48,10 +100,7 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     username = Column(String(63), nullable=False, unique=True)
     access_token = Column(String(127), nullable=False)
-
-    def __init__(self, username, access_token):
-        self.username = username
-        self.access_token = access_token
+    data = Column(JSONEncodedDict, nullable=False)
 
 Base.metadata.create_all(engine)
 
@@ -63,8 +112,6 @@ def enums(*args, **kwargs):
 class Conversation(telepot.helper.ChatHandler):
     def __init__(self, seed_tuple, timeout):
         super(Conversation, self).__init__(seed_tuple, timeout)
-        self.idle = True
-        self.data = {}
         self.callback = {
             u'/createpost': self.createpost,
             u'/authorize': self.authorize,
@@ -76,6 +123,16 @@ class Conversation(telepot.helper.ChatHandler):
             u'/post': self.post,
             u'/start': self.start
         }
+        msg = seed_tuple[1]
+        self.username = msg[u'from'][u'username']
+        self.user_dbref = session.query(User).filter(User.username == self.username).one_or_none()
+        if not self.user_dbref:
+            session.add(
+                User(
+                    username=self.username,
+                    access_token='dummyToken',
+                    data={}))
+            self.user_dbref = session.query(User).filter(User.username == self.username).one_or_none()
 
     def start(self, msg, text):
         helpmsg = u"""
@@ -84,13 +141,13 @@ class Conversation(telepot.helper.ChatHandler):
                 {wp_oauth_link}
         """
         return self.sender.sendMessage(
-            textwrap.dedent(helpmsg).format(wp_oauth_link=self.getOauth(msg[u'from'][u'username'])))
+            textwrap.dedent(helpmsg).format(wp_oauth_link=self.getOauth(self.username)))
 
     def cancel(self, msg, text):
         if self.idle:
             return self.sender.sendMessage(u'no operation to cancel.')
-        self.idle = True
-        self.data = {}
+        self.user_dbref.data.clear()
+        session.commit()
         return self.sender.sendMessage(u'current operation cancelled')
 
     def createpost(self, msg, text):
@@ -110,8 +167,8 @@ class Conversation(telepot.helper.ChatHandler):
         if not self.idle:
             return self.sender.sendMessage(
                 u'you are in the middle of an operation! please cancel that first with /cancel')
-        self.idle = False
-        self.data = {}
+        self.user_dbref.data[u'operation'] = u'createpost'
+        session.commit()
 
     def getOauth(self, username):
         return (
@@ -138,7 +195,7 @@ class Conversation(telepot.helper.ChatHandler):
         code = msg[u'text'].partition(u'\n')[0].partition(u' ')[2]
         if not code:
             return self.sender.sendMessage(
-                textwrap.dedent(helpmsg).format(wp_oauth_link=self.getOauth(msg[u'from'][u'username'])))
+                textwrap.dedent(helpmsg).format(wp_oauth_link=self.getOauth(self.username)))
         resp = requests.post(
             u'https://public-api.wordpress.com/oauth2/token',
             data={
@@ -151,14 +208,7 @@ class Conversation(telepot.helper.ChatHandler):
         if resp.status_code != 200:
             return self.sender.sendMessage('authorization failed! please enter the correct code')
         authinfo = resp.json()
-        user_dbref = session.query(User).filter(User.username == msg[u'from'][u'username']).one_or_none()
-        if not user_dbref:
-            session.add(
-                User(
-                    msg[u'from'][u'username'],
-                    authinfo[u'access_token']))
-        else:
-            user_dbref.access_token = authinfo[u'access_token']
+        self.user_dbref.access_token = authinfo[u'access_token']
         session.commit()
         return self.sender.sendMessage('authorization successfull!')
 
@@ -171,21 +221,23 @@ class Conversation(telepot.helper.ChatHandler):
         return
 
     def set_title(self, msg, text):
-        self.data[u'title'] = text
+        self.user_dbref.data[u'title'] = text
+        session.commit()
 
     def set_content(self, msg, text):
-        self.data[u'content'] = text
+        self.user_dbref.data[u'content'] = text
+        session.commit()
 
     def review(self, msg, text):
         if self.idle:
             return self.sender.sendMessage(u'status: idle')
         return self.sender.sendMessage(
-            json.dumps(self.data, sort_keys=True, indent=4, separators=(u',', u': ')))
+            json.dumps(dict(self.user_dbref.data), sort_keys=True, indent=4, separators=(u',', u': ')))
 
     def post(self, msg, text):
         return self.sender.sendMessage('Not Implemented!')
         # post_uri = u'https://public-api.wordpress.com/rest/v1.1/sites/{site}/posts/new'
-        # site = db.getblog(msg[u'from'][u'username'])
+        # site = db.getblog(self.username)
         # requests.post(post_uri.format(site=site, data={
 
         #     }))
