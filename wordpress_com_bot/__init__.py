@@ -145,7 +145,7 @@ class Conversation(telepot.helper.ChatHandler):
             textwrap.dedent(helpmsg).format(wp_oauth_link=self.getOauth(self.username)))
 
     def cancel(self, msg, text):
-        if len(self.user_dbref.data):
+        if len(self.user_dbref.data) == 0:
             return self.sender.sendMessage(u'no operation to cancel.')
         self.user_dbref.data.clear()
         session.commit()
