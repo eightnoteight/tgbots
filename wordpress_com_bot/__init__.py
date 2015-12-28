@@ -219,9 +219,7 @@ def webhook():
     if len(recent_updates) >= 100:
         heappop(recent_updates)
     try:
-        th = Thread(target=wpbot.handle, args=(update[u'message'], ))
-        th.daemon = True
-        th.start()
+        wpbot.handle(update[u'message'])
     except Exception, e:
         print e
         return u'', 500
