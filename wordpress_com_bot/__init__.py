@@ -230,7 +230,7 @@ class Conversation(telepot.helper.ChatHandler):
 
     def set_title(self, msg, text):
         user_dbref = session.query(User).filter(User.username == self.username).one_or_none()
-        if user_dbref.get(u'operation') != u'createpost':
+        if user_dbref.data.get(u'operation') != u'createpost':
             return self.sender.sendMessage(
                 'error: this command belongs to createpost. first go to /createpost')
         user_dbref.data[u'title'] = text
@@ -238,7 +238,7 @@ class Conversation(telepot.helper.ChatHandler):
 
     def set_content(self, msg, text):
         user_dbref = session.query(User).filter(User.username == self.username).one_or_none()
-        if user_dbref.get(u'operation') != u'createpost':
+        if user_dbref.data.get(u'operation') != u'createpost':
             return self.sender.sendMessage(
                 'error: this command belongs to createpost. first go to /createpost')
         user_dbref.data[u'content'] = text
@@ -265,7 +265,7 @@ class Conversation(telepot.helper.ChatHandler):
             get invalid token error.
         '''
         user_dbref = session.query(User).filter(User.username == self.username).one_or_none()
-        if user_dbref.get(u'operation') != u'createpost':
+        if user_dbref.data.get(u'operation') != u'createpost':
             return self.sender.sendMessage(
                 'error: this command belongs to createpost. first go to /createpost')
         _, _, site = msg.partition(u'\n')[0].partition(u' ')
