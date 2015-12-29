@@ -126,6 +126,7 @@ class Conversation(telepot.helper.ChatHandler):
             u'/setcontent': self.set_content,
             u'/cancel': self.cancel,
             u'/review': self.review,
+            u'/status': self.status,
             u'/sendpost': self.post,
             u'/start': self.start
         }
@@ -249,9 +250,15 @@ class Conversation(telepot.helper.ChatHandler):
     def review(self, msg, text):
         user_dbref = session.query(User).filter(User.username == self.username).one_or_none()
         if not len(user_dbref.data):
-            return self.sender.sendMessage(u'status: idle')
+            return self.sender.sendMessage(u'no operation to review.')
         return self.sender.sendMessage(
             json.dumps(dict(user_dbref.data)))
+
+    def status(self, msg, text):
+        user_dbref = session.query(User).filter(User.username == self.username).one_or_none()
+        if not len(user_dbref.data):
+            return self.sender.sendMessage(u'status: idle')
+        return self.sender.sendMessage(u'status: ')
 
     def post(self, msg, text):
         user_dbref = session.query(User).filter(User.username == self.username).one_or_none()
