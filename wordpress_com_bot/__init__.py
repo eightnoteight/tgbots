@@ -268,7 +268,7 @@ class Conversation(telepot.helper.ChatHandler):
         if user_dbref.data.get(u'operation') != u'createpost':
             return self.sender.sendMessage(
                 'error: this command belongs to createpost. first go to /createpost')
-        _, _, site = msg.partition(u'\n')[0].partition(u' ')
+        _, _, site = msg[u'text'].partition(u'\n')[0].partition(u' ')
         if not site:
             return self.sender.sendMessage('invalid params'), self.sender.sendMessage(textwrap.dedent(help_msg))
         resp = requests.post(
