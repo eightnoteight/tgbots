@@ -116,11 +116,17 @@ class Conversation(telepot.helper.ChatHandler):
             u'/createpost': self.createpost,
             u'/authorize': self.authorize,
             u'/set_default_site': self.set_default_site,
+            u'/set-default-site': self.set_default_site,
+            u'/setdefaultsite': self.set_default_site,
             u'/set_title': self.set_title,
+            u'/set-title': self.set_title,
+            u'/settitle': self.set_title,
             u'/set_content': self.set_content,
+            u'/set-content': self.set_content,
+            u'/setcontent': self.set_content,
             u'/cancel': self.cancel,
             u'/review': self.review,
-            u'/post': self.post,
+            u'/sendpost': self.post,
             u'/start': self.start
         }
         msg = seed_tuple[1]
@@ -145,12 +151,12 @@ class Conversation(telepot.helper.ChatHandler):
 
     def cancel(self, msg, text):
         user_dbref = session.query(User).filter(User.username == self.username).one_or_none()
-        assert user_dbref is not None
         if len(user_dbref.data) == 0:
             return self.sender.sendMessage(u'no operation to cancel.')
+        curop = user_dbref.data[u'operation']
         user_dbref.data.clear()
         session.commit()
-        return self.sender.sendMessage(u'current operation cancelled')
+        return self.sender.sendMessage(u'%s cancelled' % curop)
 
     def createpost(self, msg, text):
         u"""
@@ -226,11 +232,17 @@ class Conversation(telepot.helper.ChatHandler):
 
     def set_title(self, msg, text):
         user_dbref = session.query(User).filter(User.username == self.username).one_or_none()
+        if user_dbref.get(u'operation') != u'createpost':
+            return self.sender.sendMessage(
+                'error: this command belongs to createpost. first go to /createpost')
         user_dbref.data[u'title'] = text
         session.commit()
 
     def set_content(self, msg, text):
         user_dbref = session.query(User).filter(User.username == self.username).one_or_none()
+        if user_dbref.get(u'operation') != u'createpost':
+            return self.sender.sendMessage(
+                'error: this command belongs to createpost. first go to /createpost')
         user_dbref.data[u'content'] = text
         session.commit()
 
@@ -243,6 +255,9 @@ class Conversation(telepot.helper.ChatHandler):
 
     def post(self, msg, text):
         user_dbref = session.query(User).filter(User.username == self.username).one_or_none()
+        if user_dbref.get(u'operation') != u'createpost':
+            return self.sender.sendMessage(
+                'error: this command belongs to createpost. first go to /createpost')
         resp = requests.post(
             'https://public-api.wordpress.com/rest/v1.1/sites/eightnoteight.wordpress.com/posts/new/',
             data={
@@ -257,6 +272,8 @@ class Conversation(telepot.helper.ChatHandler):
             return self.sender.sendMessage('invalid token. try authorizing the app again.')
         if resp.status_code != 200:
             return self.sender.sendMessage('unknown error. error code received is %s' % resp.status_code)
+        user_dbref.data.clear()
+        session.commit()
         return self.sender.sendMessage(resp.json()[u'URL'])
 
     def on_message(self, msg):
