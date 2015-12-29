@@ -283,6 +283,8 @@ class Conversation(telepot.helper.ChatHandler):
         )
         if resp.status_code == 400:
             return self.sender.sendMessage(u'invalid token. try authorizing the app again.')
+        if resp.status_code == 403:
+            return self.sender.sendMessage(u'403, forbidden. you don\'t have permission to create a post on %s' % site)
         if resp.status_code != 200:
             return self.sender.sendMessage('unknown error. error code received is %s' % resp.status_code)
         user_dbref.data.clear()
