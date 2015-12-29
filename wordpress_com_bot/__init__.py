@@ -301,7 +301,7 @@ class Conversation(telepot.helper.ChatHandler):
 
 wpbot = telepot.DelegatorBot(
     config[u'wordpress_com_bot_token'],
-    [(per_chat_id(), create_open(Conversation, timeout=86400))])
+    [(per_chat_id(), create_open(Conversation, timeout=600))])
 
 wpbotapp = Blueprint(u'wordpress_com_bot', __name__)
 
