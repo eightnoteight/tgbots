@@ -21,10 +21,8 @@ import logging
 import sys
 import traceback
 
-
 class JSONEncodedDict(TypeDecorator):
     "Represents an immutable structure as a json-encoded string."
-
     impl = VARCHAR
 
     def process_bind_param(self, value, dialect):
@@ -45,7 +43,6 @@ class MutableDict(Mutable, dict):
         if not isinstance(value, MutableDict):
             if isinstance(value, dict):
                 return MutableDict(value)
-
             # this call will raise ValueError
             return Mutable.coerce(key, value)
         else:
@@ -53,7 +50,6 @@ class MutableDict(Mutable, dict):
 
     def __setitem__(self, key, value):
         "Detect dictionary set events and emit change events."
-
         dict.__setitem__(self, key, value)
         self.changed()
 
@@ -63,23 +59,27 @@ class MutableDict(Mutable, dict):
 
     def __delitem__(self, key):
         "Detect dictionary del events and emit change events."
-
         dict.__delitem__(self, key)
         self.changed()
 
 MutableDict.associate_with(JSONEncodedDict)
 
-
+# logging part
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
-logger = getLogger('tgbots.wordpress_com_bot')
+logger = getLogger(u'tgbots.wordpress_com_bot')
 
+# config.conf
 configparser = SafeConfigParser(os.environ)
 configparser.read(
     os.path.join(
         os.environ.get(u'OPENSHIFT_DATA_DIR', u'.'),
-        'config.conf'))
-config = dict(configparser.items('default'))
+        u'config.conf'))
+config = dict(configparser.items(u'default'))
 
+# sqlalchemy create engine and one global session.
+# having a global session is bad, but it is recommended to have a single session.
+# simple workaround is to have a scoped session using contextlib.contextmanager
+# or have a db thread and send ops to that thread so that we will use only one session, for all threads.
 engine = create_engine(
     u'postgresql://{username}:{password}@{postgresql_host}:{postgresql_port}/{dbname}'.format(
         username=config[u'psqldb_username'],
@@ -90,13 +90,14 @@ engine = create_engine(
     ), echo=True)
 if not database_exists(engine.url):
     create_database(engine.url)
-assert database_exists(engine.url)
+
 Session = sessionmaker(bind=engine)
 session = Session()
 Base = declarative_base()
 
+# user model
 class User(Base):
-    __tablename__ = 'users'
+    __tablename__ = u'users'
     id = Column(Integer, primary_key=True)
     username = Column(String(63), nullable=False, unique=True)
     access_token = Column(String(127), nullable=False)
@@ -104,11 +105,7 @@ class User(Base):
 
 Base.metadata.create_all(engine)
 
-def enums(*args, **kwargs):
-    names = dict(zip(args, range(len(args))), **kwargs)
-    return type('Enum', (), names)
-
-
+# telepot Delegation Mechanism
 class Conversation(telepot.helper.ChatHandler):
     def __init__(self, seed_tuple, timeout):
         super(Conversation, self).__init__(seed_tuple, timeout)
@@ -127,7 +124,7 @@ class Conversation(telepot.helper.ChatHandler):
             u'/cancel': self.cancel,
             u'/review': self.review,
             u'/status': self.status,
-            u'/sendpost': self.post,
+            u'/sendpost': self.sendpost,
             u'/start': self.start
         }
         msg = seed_tuple[1]
@@ -258,25 +255,34 @@ class Conversation(telepot.helper.ChatHandler):
         user_dbref = session.query(User).filter(User.username == self.username).one_or_none()
         if not len(user_dbref.data):
             return self.sender.sendMessage(u'status: idle')
-        return self.sender.sendMessage(u'status: ')
+        return self.sender.sendMessage(u'status: %s operation' % user_dbref.data[u'operation'])
 
-    def post(self, msg, text):
+    def sendpost(self, msg, text):
+        help_msg = u'''
+        /sendpost {{site_address}}
+            site_address should be one of your blog address,
+            if you are not a owner of the blog you will
+            get invalid token error.
+        '''
         user_dbref = session.query(User).filter(User.username == self.username).one_or_none()
         if user_dbref.get(u'operation') != u'createpost':
             return self.sender.sendMessage(
                 'error: this command belongs to createpost. first go to /createpost')
+        _, _, site = msg.partition(u'\n')[0].partition(u' ')
+        if not site:
+            return self.sender.sendMessage('invalid params'), self.sender.sendMessage(textwrap.dedent(help_msg))
         resp = requests.post(
-            'https://public-api.wordpress.com/rest/v1.1/sites/eightnoteight.wordpress.com/posts/new/',
+            'https://public-api.wordpress.com/rest/v1.1/sites/{site}/posts/new/'.format(site=site),
             data={
-                'title': user_dbref.data.get('title', ''),
-                'content': user_dbref.data.get('content', ''),
+                u'title': user_dbref.data.get(u'title', u''),
+                u'content': user_dbref.data.get(u'content', u''),
             },
             headers={
-                'authorization': 'Bearer %s' % user_dbref.access_token
+                u'authorization': u'Bearer %s' % user_dbref.access_token
             }
         )
         if resp.status_code == 400:
-            return self.sender.sendMessage('invalid token. try authorizing the app again.')
+            return self.sender.sendMessage(u'invalid token. try authorizing the app again.')
         if resp.status_code != 200:
             return self.sender.sendMessage('unknown error. error code received is %s' % resp.status_code)
         user_dbref.data.clear()
@@ -289,7 +295,7 @@ class Conversation(telepot.helper.ChatHandler):
             if u'text' not in msg or msg[u'text'][0] != u'/':
                 return self.sender.sendMessage(u'not a command!')
             cmdline, _, text = msg[u'text'].partition(u'\n')
-            cmd = cmdline.partition(' ')[0]
+            cmd = cmdline.partition(u' ')[0]
             if cmd not in self.callback:
                 return self.sender.sendMessage(u'unrecognized command!')
             return self.callback[cmd](msg, text)
@@ -303,8 +309,10 @@ wpbot = telepot.DelegatorBot(
     config[u'wordpress_com_bot_token'],
     [(per_chat_id(), create_open(Conversation, timeout=600))])
 
+# flask blueprint app, much like that you get from flask.Flask()
 wpbotapp = Blueprint(u'wordpress_com_bot', __name__)
 
+# keeping a recent_updates heap to ignore same updates from telegram.
 recent_updates = []
 
 @wpbotapp.route(u'/' + config[u'wordpress_com_bot_token'], methods=[u'POST'])
@@ -322,8 +330,6 @@ def webhook():
         return u'', 500
     return u'', 200
 
-
-
 @wpbotapp.route(u'/')
 def home():
-    return jsonify({u'Display Available Commands':'none'})
+    return jsonify({u'Display Available Commands':u'none'})
